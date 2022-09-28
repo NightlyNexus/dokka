@@ -3,6 +3,7 @@ package model
 import org.jetbrains.dokka.Platform
 import org.jetbrains.dokka.base.transformers.documentables.InheritorsInfo
 import org.jetbrains.dokka.model.DClass
+import org.jetbrains.dokka.model.DFunction
 import org.jetbrains.dokka.model.DInterface
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -96,6 +97,56 @@ class InheritorsTest : AbstractModelTest("/src/main/kotlin/inheritors/Test.kt", 
                     }
 
                 }
+            }
+        }
+    }
+
+    @Test
+    fun `should inherit docs in case of diamond inheritance`() {
+        inlineModelTest(
+            """
+            public interface Collection2<out E>  {
+                /**
+                 * Returns `true` if the collection is empty (contains no elements), `false` otherwise.
+                 */
+                public fun isEmpty(): Boolean
+            
+                /**
+                 * Checks if the specified element is contained in this collection.
+                 */
+                public operator fun contains(element: @UnsafeVariance E): Boolean
+            }
+            
+            public interface MutableCollection2<E> : Collection2<E>, MutableIterable2<E> 
+            
+
+            public interface List2<out E> : Collection2<E> {
+                override fun isEmpty(): Boolean
+                override fun contains(element: @UnsafeVariance E): Boolean
+            }
+            
+            public interface MutableList2<E> : List2<E>, MutableCollection2<E>
+            
+            public class AbstractMutableList2<E> : MutableList2<E> {
+                protected constructor()
+            
+                // From List
+            
+                override fun isEmpty(): Boolean = size == 0
+                public override fun contains(element: E): Boolean = indexOf(element) != -1
+            }
+            public class ArrayDeque2<E> : AbstractMutableList2<E> {
+                override fun isEmpty(): Boolean = size == 0
+                public override fun contains(element: E): Boolean = indexOf(element) != -1
+            
+            }
+            """.trimMargin()
+        ) {
+            with((this / "inheritors" / "ArrayDeque2" / "isEmpty").cast<DFunction>()) {
+                documentation.size equals 1
+            }
+            with((this / "inheritors" / "ArrayDeque2" / "contains").cast<DFunction>()) {
+                documentation.size equals 1
             }
         }
     }
